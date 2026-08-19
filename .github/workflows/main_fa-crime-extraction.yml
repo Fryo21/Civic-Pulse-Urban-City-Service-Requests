@@ -70,6 +70,6 @@ jobs:
         id: deploy-to-function
         with:
           app-name: 'fa-crime-extraction'
-          slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_172B66663AE248AA8402B031A83F8B06 }}
+          sku: flexconsumption
