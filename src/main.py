@@ -16,33 +16,39 @@ def run_ingestion(search_force, year, month):
         SEARCH_FORCE (str): Police force to retrieve data for.
 
     Returns:
-        list: Extracted crime records after successful ingestion.
-        None: If data is unavailable, already exists, or ingestion fails.
+        dict: Status and ingestion metadata.
     """
 
     check_container_client()
     
     police_force = get_police_force(search_force)
 
+
     if police_force is None:
 
-        logger.error("Police force could not be retrieved.")
+        message = "Police force could not be retrieved."
 
-        return
+        logger.error(message)
+
+        return {"status": "failed", "reason": message}
+
     
-
     if not check_month_available(year, month):
 
-        logger.warning(f"No crime data available for {year}-{month}")
+        message = f"No crime data available for {year}-{month}"
 
-        return
+        logger.error(message)
+
+        return {"status": "skipped", "reason": message}
+
 
     if blob_exists(police_force, year, month):
 
-        logger.warning(f"Crime data for {year}-{month} already exists in Bronze.")
+        message = f"Crime data for {year}-{month} already exists in Bronze."
 
-        return
+        logger.error(message)
 
+        return {"status": "skipped", "reason": message}
 
 
     logger.info("Starting ingestion...")
@@ -51,20 +57,26 @@ def run_ingestion(search_force, year, month):
 
     neighbourhood_ids = get_neighborhoods(police_force)
 
+
     if not neighbourhood_ids:
+        message = "No neighbourhoods retrieved."
 
-        logger.error("No neighbourhoods retrieved.")
+        logger.error(message)
 
-        return
+        return {"status": "failed", "reason": message}
+
 
     boundaries = get_neighbourhood_boundaries(police_force, neighbourhood_ids)
 
+
     if not boundaries:
 
-        logger.error("No neighbourhood boundaries retrieved.")
+        message = "No neighbourhood boundaries retrieved."
 
-        return
-
+        logger.error(message)
+        
+        return {"status": "failed", "reason": message}
+    
 
     for neighbourhood in boundaries:
 

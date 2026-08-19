@@ -20,21 +20,18 @@ URL_STREET_LEVEL_CRIME = os.getenv("URL_STREET_LEVEL_CRIME")
 URL_CRIME_STREET_DATE = os.getenv("URL_CRIME_STREET_DATE")
 
 # Pipeline parameters
-YEAR = os.getenv("YEAR")
-MONTH = os.getenv("MONTH")
-SEARCH_FORCE = os.getenv("SEARCH_FORCE")
+#YEAR = os.getenv("YEAR")
+#MONTH = os.getenv("MONTH")
+#SEARCH_FORCE = os.getenv("SEARCH_FORCE")
 
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Configure Logging
 logging.basicConfig(
-    filename = "test.log",
-    filemode = "w",
     format = "%(asctime)s - %(levelname)s - %(message)s",
-    level = logging.DEBUG,
+    level = logging.INFO,
 )
-
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
