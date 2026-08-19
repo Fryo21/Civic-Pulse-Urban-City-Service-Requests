@@ -1,10 +1,10 @@
 import json
 from .config import logger, BRONZE_CONTAINER_NAME, ACCOUNT_URL
-from azure.identity import AzureCliCredential
+from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 
 
-credential = AzureCliCredential()
+credential = DefaultAzureCredential()
 
 blob_service_client = BlobServiceClient(ACCOUNT_URL, credential=credential)
 
