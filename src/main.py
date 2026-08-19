@@ -47,8 +47,14 @@ def run_ingestion(search_force, year, month):
         message = f"Crime data for {year}-{month} already exists in Bronze."
 
         logger.error(message)
-
-        return {"status": "skipped", "reason": message}
+        
+        return {
+            "status": "bronze_exists",
+            "force_name": search_force,
+            "force_id": police_force,
+            "year": year,
+            "month": month
+        }
 
 
     logger.info("Starting ingestion...")
@@ -99,7 +105,8 @@ def run_ingestion(search_force, year, month):
 
     return {
             "status": "success", 
-            "force": police_force,
+            "force_name": search_force,
+            "force_id": police_force,
             "year": year, 
             "month": month, 
             "records_ingested": total_records
