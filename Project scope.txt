@@ -1,0 +1,142 @@
+Project scope
+London Police Data Engineering Platform
+
+Build a batch pipeline that collects UK police crime data, validates it, transforms it and makes it available for analysis.
+
+Implementation path
+1. Data ingestion
+
+Use Python or Azure Data Factory to call the UK Police API monthly
+The pipeline should:
+
+Check the latest available month
+Download only new data
+Record each ingestion run
+Handle API failures and retries
+
+Skill shown: REST APIs, Python, incremental ingestion and batch processing.
+
+2. Raw storage
+
+Store the original JSON response in Azure Data Lake Storage Gen2.
+
+Partition files like:
+
+/raw/police-force/metropolitan/2026/07/
+
+Do not modify the raw files.
+
+Skill shown: Data lakes, partitioning and Bronze-layer design.
+
+3. Data validation
+
+Check for:
+
+Missing crime IDs
+Duplicate records
+Invalid coordinates
+Unknown crime categories
+Missing months
+Schema changes
+
+Move failed records into a quarantine folder or table.
+
+Skill shown: Data quality, schema validation and error handling.
+
+4. Data transformation
+
+Use ADF, Python or SQL to:
+
+Flatten the JSON
+Standardise crime categories
+Remove duplicates
+Convert dates correctly
+Join crimes with their outcomes
+Prepare clean Silver tables
+
+
+
+
+
+
+Skill shown: ETL/ELT, JSON processing, SQL and transformation logic.
+
+5. PostgreSQL data model
+
+Create a Gold-layer star schema:
+
+fact_crime
+fact_crime_outcome
+
+dim_date
+dim_location
+dim_crime_type
+dim_police_force
+dim_outcome
+
+Skill shown: Dimensional modelling, PostgreSQL and analytics database design.
+
+6. Pipeline orchestration
+
+Use Azure Data Factory to control:
+
+API extraction
+→ Raw storage
+→ Validation
+→ Transformation
+→ PostgreSQL loading
+→ Data quality checks
+
+Add parameters, dependencies, retries and incremental-load watermarks.
+
+Skill shown: ADF orchestration and production pipeline design.
+
+7. Monitoring
+
+Track:
+
+Pipeline status
+Records extracted
+Records loaded
+Rejected records
+Duplicate records
+Pipeline duration
+Latest available data month
+
+Use Azure Monitor alerts for failures.
+
+Skill shown: Observability, logging and operational support.
+
+8. Infrastructure as code
+
+Use Terraform to create:
+
+Storage account and ADLS containers
+Azure Data Factory
+Azure PostgreSQL
+Key Vault
+Monitoring resources
+
+Skill shown: Terraform, Azure and reproducible infrastructure.
+
+9. CI/CD
+
+Use GitHub Actions to:
+
+Validate Terraform
+Run Python tests
+Run SQL or data-quality tests
+Deploy infrastructure and pipeline changes
+
+Skill shown: Git, automated testing and DataOps.
+
+10. Power BI output
+
+Keep the dashboard limited to:
+
+Crime trends by month and type
+Comparison between police forces or London areas
+Crime outcomes and unresolved cases
+Data-pipeline health
+
+The dashboard demonstrates that the pipeline produces usable data. It should not become the main part of the project.
