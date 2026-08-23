@@ -1,14 +1,18 @@
 import SearchableSelect from "../../../components/SearchableSelect";
-import { MONTHS, YEARS } from "../constants";
+import { MONTHS } from "../constants";
 import type { DashboardFilters as Filters } from "../types/dashboard";
 
 interface DashboardFiltersProps {
   filters: Filters;
+  years: number[];
+  monthsForYear: number[];
   onChange: (filters: Filters) => void;
 }
 
 export default function DashboardFilters({
   filters,
+  years,
+  monthsForYear,
   onChange,
 }: DashboardFiltersProps) {
   return (
@@ -49,7 +53,7 @@ export default function DashboardFilters({
               })
             }
           >
-            {YEARS.map((year) => (
+            {years.map((year) => (
               <option
                 key={year}
                 value={year}
@@ -64,9 +68,11 @@ export default function DashboardFilters({
           Month
 
           <SearchableSelect
-            options={MONTHS.map((month) => ({
-              value: String(month.value),
-              label: month.label,
+            options={monthsForYear.map((month) => ({
+              value: String(month),
+              label:
+                MONTHS.find((option) => option.value === month)?.label ??
+                String(month),
             }))}
             value={String(filters.month)}
             placeholder="Search month..."

@@ -6,31 +6,105 @@ import CrimeTrendChart from "../features/dashboard/components/CrimeTrendChart";
 import DashboardFilters from "../features/dashboard/components/DashboardFilters";
 import MetricCard from "../features/dashboard/components/MetricCard";
 import Panel from "../features/dashboard/components/Panel";
+import CrimeMap from "../features/dashboard/components/CrimeMap";
 
-import { CATEGORY_NAMES } from "../features/dashboard/constants";
-import { getDashboardData } from "../features/dashboard/services/dashboardService";
+import {
+  getCrimeHotspots,
+  getCrimeMetadata,
+  getDashboardData,
+} from "../features/dashboard/services/dashboardService";
 
 import type {
+  CrimeLocation,
+  CrimeMetadata,
   DashboardData,
   DashboardFilters as Filters,
 } from "../features/dashboard/types/dashboard";
 
 export default function DashboardPage() {
-  const [filters, setFilters] = useState<Filters>({
-    policeForce: "Metropolitan Police Service",
-    year: 2025,
-    month: 2,
-  });
+  const [metadata, setMetadata] = useState<CrimeMetadata | null>(null);
+
+  const [filters, setFilters] = useState<Filters | null>(null);
 
   const [data, setData] = useState<DashboardData | null>(null);
 
+  const [hotspots, setHotspots] = useState<CrimeLocation[]>([]);
+
   const [hotspotCategory, setHotspotCategory] = useState("all");
+
+  const [mapMode, setMapMode] = useState<"heatmap" | "points">("heatmap");
 
   const [trendCategory, setTrendCategory] = useState("all");
 
+  // Discover what data actually exists in the database, then open on the
+  // most recent period available rather than any hardcoded default.
   useEffect(() => {
+    getCrimeMetadata().then((result) => {
+      setMetadata(result);
+
+      if (result.latest) {
+        setFilters({
+          policeForce: "Metropolitan Police Service",
+          year: result.latest.year,
+          month: result.latest.month,
+        });
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!filters) {
+      return;
+    }
+
     getDashboardData(filters).then(setData);
   }, [filters]);
+
+  // Kept separate from the dashboard fetch so changing the hotspot category
+  // only refreshes the map, not the whole dashboard.
+  useEffect(() => {
+    if (!filters) {
+      return;
+    }
+
+    getCrimeHotspots({
+      year: filters.year,
+      month: filters.month,
+      category: hotspotCategory,
+    }).then(setHotspots);
+  }, [filters, hotspotCategory]);
+
+  if (!metadata || !filters) {
+    return <div className="loading-state">Loading dashboard...</div>;
+  }
+
+  // Rebind to non-null locals: `filters`/`metadata` stay optional in state
+  // (TS can't carry that narrowing into the closure below), but by this
+  // point the early return above guarantees both are set.
+  const activeFilters: Filters = filters;
+  const activeMetadata: CrimeMetadata = metadata;
+
+  const monthsForYear = activeMetadata.monthsByYear[activeFilters.year] ?? [];
+
+  function updateFilters(nextFilters: Filters) {
+    if (nextFilters.year === activeFilters.year) {
+      setFilters(nextFilters);
+      return;
+    }
+
+    // The year changed — snap the month to a valid one for that year
+    // instead of carrying over a month that may not exist there.
+    const monthsForNextYear =
+      activeMetadata.monthsByYear[nextFilters.year] ?? [];
+    const stillValid = monthsForNextYear.includes(nextFilters.month);
+
+    setFilters({
+      ...nextFilters,
+      month: stillValid
+        ? nextFilters.month
+        : monthsForNextYear[monthsForNextYear.length - 1],
+    });
+  }
 
   if (!data) {
     return <div className="loading-state">Loading dashboard...</div>;
@@ -40,7 +114,7 @@ export default function DashboardPage() {
     label: row.label,
     count:
       trendCategory === "all"
-        ? CATEGORY_NAMES.reduce(
+        ? metadata.categories.reduce(
             (sum, category) => sum + Number(row[category] ?? 0),
             0
           )
@@ -63,7 +137,9 @@ export default function DashboardPage() {
 
       <DashboardFilters
         filters={filters}
-        onChange={setFilters}
+        years={metadata.years}
+        monthsForYear={monthsForYear}
+        onChange={updateFilters}
       />
 
       <section className="metric-grid">
@@ -94,43 +170,33 @@ export default function DashboardPage() {
           className="map-panel"
           actions={
             <CategoryFilter
-              categories={data.categories.map(
-                (category) => category.category
-              )}
+              categories={metadata.categories}
               value={hotspotCategory}
               onChange={setHotspotCategory}
             />
           }
         >
-          <div className="map-placeholder">
-            <div>
-              <span className="map-label">
-                LONDON MAP
-              </span>
-
-              <h3>
-                Geographic Crime Distribution
-              </h3>
-
-              <p>
-                Azure Maps heatmap and crime-location points
-                will render here.
-              </p>
-
-              <div className="map-switch">
+            <CrimeMap
+                locations={hotspots}
+                mapMode={mapMode}
+            />
+            <div className="map-switch">
                 <button
-                  type="button"
-                  className="active"
+                    type="button"
+                    className={mapMode === "heatmap" ? "active" : ""}
+                    onClick={() => setMapMode("heatmap")}
                 >
-                  Heatmap
+                    Heatmap
                 </button>
 
-                <button type="button">
-                  Points
+                <button
+                    type="button"
+                    className={mapMode === "points" ? "active" : ""}
+                    onClick={() => setMapMode("points")}
+                >
+                    Points
                 </button>
-              </div>
-            </div>
-          </div>
+                </div>
         </Panel>
 
         <Panel
@@ -180,7 +246,7 @@ export default function DashboardPage() {
           className="distribution-panel"
           actions={
             <CategoryFilter
-              categories={CATEGORY_NAMES}
+              categories={metadata.categories}
               value={trendCategory}
               onChange={setTrendCategory}
             />

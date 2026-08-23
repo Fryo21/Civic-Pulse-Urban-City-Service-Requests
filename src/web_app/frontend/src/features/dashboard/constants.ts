@@ -1,18 +1,11 @@
-export const YEARS = [2024, 2025, 2026];
-
-export const CATEGORY_NAMES = [
-  "Violence and sexual offences",
-  "Anti-social behaviour",
-  "Vehicle crime",
-  "Burglary",
-  "Shoplifting",
-];
-
 export interface MonthOption {
   value: number;
   label: string;
 }
 
+/** Static label lookup for rendering month numbers (1-12) as names.
+ * Which months are actually selectable comes from the metadata endpoint,
+ * not from this list. */
 export const MONTHS: MonthOption[] = [
   { value: 1, label: "January" },
   { value: 2, label: "February" },

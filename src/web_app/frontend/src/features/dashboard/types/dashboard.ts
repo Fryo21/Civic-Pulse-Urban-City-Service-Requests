@@ -36,3 +36,10 @@ export interface DashboardData {
   locations: CrimeLocation[];
   monthlyTrend: CategoryMonthlyTrend[];
 }
+
+export interface CrimeMetadata {
+  years: number[];
+  monthsByYear: Record<number, number[]>;
+  categories: string[];
+  latest: { year: number; month: number } | null;
+}
