@@ -1,6 +1,6 @@
 import json
-from config import logger, ACCOUNT_URL, QUARANTINE_CONTAINER_NAME
-from az_storage import blob_exists, get_container_client
+from src.ingestion.config import logger, ACCOUNT_URL, QUARANTINE_CONTAINER_NAME
+from src.ingestion.az_storage import blob_exists, get_container_client
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 
