@@ -411,6 +411,11 @@ select {
 
 /* LOCATIONS */
 
+.locations-panel .panel-content {
+  max-height: 470px;
+  overflow-y: auto;
+}
+
 .location-list {
   display: flex;
   flex-direction: column;
@@ -424,7 +429,24 @@ select {
 
   padding: 14px 4px;
 
+  border: 0;
   border-bottom: 1px solid #172537;
+  border-radius: 6px;
+
+  cursor: pointer;
+  background: transparent;
+
+  font: inherit;
+  text-align: left;
+  color: inherit;
+
+  width: 100%;
+}
+
+.location-row:hover,
+.location-row:focus-visible {
+  background: #101d2e;
+  outline: none;
 }
 
 .location-row:last-child {

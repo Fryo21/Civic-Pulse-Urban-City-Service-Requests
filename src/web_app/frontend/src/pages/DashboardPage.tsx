@@ -32,6 +32,10 @@ export default function DashboardPage() {
 
   const [hotspotCategory, setHotspotCategory] = useState("all");
 
+  const [focusedLocation, setFocusedLocation] = useState<CrimeLocation | null>(
+    null
+  );
+
   const [mapMode, setMapMode] = useState<"heatmap" | "points">("heatmap");
 
   const [trendCategory, setTrendCategory] = useState("all");
@@ -179,6 +183,8 @@ export default function DashboardPage() {
             <CrimeMap
                 locations={hotspots}
                 mapMode={mapMode}
+                category={hotspotCategory}
+                focusLocation={focusedLocation}
             />
             <div className="map-switch">
                 <button
@@ -206,9 +212,11 @@ export default function DashboardPage() {
           <div className="location-list">
             {data.locations.map(
               (location, index) => (
-                <div
+                <button
+                  type="button"
                   className="location-row"
                   key={location.street}
+                  onClick={() => setFocusedLocation(location)}
                 >
                   <span className="location-position">
                     {String(index + 1).padStart(2, "0")}
@@ -228,7 +236,7 @@ export default function DashboardPage() {
                   <strong>
                     {location.count.toLocaleString()}
                   </strong>
-                </div>
+                </button>
               )
             )}
           </div>

@@ -6,14 +6,25 @@ import "leaflet/dist/leaflet.css";
 
 import type { CrimeLocation } from "../types/dashboard";
 
+const FOCUS_ZOOM = 16;
+
 interface CrimeMapProps {
   locations: CrimeLocation[];
   mapMode: "heatmap" | "points";
+  /** The category currently selected in the hotspot filter ("all" means
+   * every category is included in each point's aggregated count). */
+  category: string;
+  /** Location to fly to and highlight, e.g. when a "Top crime locations"
+   * row is clicked. Passing the same location object again re-triggers
+   * the fly-to even if the map has since been panned elsewhere. */
+  focusLocation: CrimeLocation | null;
 }
 
 export default function CrimeMap({
   locations,
   mapMode,
+  category,
+  focusLocation,
 }: CrimeMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -79,6 +90,8 @@ export default function CrimeMap({
         bubble.bindPopup(`
           <strong>${location.street}</strong>
           <br />
+          Category: ${category === "all" ? "All categories" : category}
+          <br />
           Crimes: ${location.count}
         `);
 
@@ -112,7 +125,21 @@ export default function CrimeMap({
     heatLayer.addTo(map);
 
     visualLayer.current = heatLayer;
-  }, [locations, mapMode]);
+  }, [locations, mapMode, category]);
+
+  // Fly to a location picked from the "Top crime locations" list.
+  useEffect(() => {
+    const map = mapInstance.current;
+
+    if (!map || !focusLocation) {
+      return;
+    }
+
+    map.flyTo(
+      [focusLocation.latitude, focusLocation.longitude],
+      FOCUS_ZOOM
+    );
+  }, [focusLocation]);
 
   return <div ref={mapContainer} className="crime-map" />;
 }

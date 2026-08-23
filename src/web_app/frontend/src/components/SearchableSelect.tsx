@@ -32,6 +32,7 @@ export default function SearchableSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredOptions = useMemo(() => {
     const search = draft.trim().toLowerCase();
@@ -71,6 +72,12 @@ export default function SearchableSelect({
     onChange(option.value);
     setIsOpen(false);
     setDraft("");
+
+    // Clicking an option uses onMouseDown + preventDefault (so the click
+    // registers before any blur-driven close), which means the input never
+    // naturally loses focus. Blur it explicitly so one click is enough to
+    // settle back to the closed state instead of needing a second click.
+    inputRef.current?.blur();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -109,6 +116,7 @@ export default function SearchableSelect({
       ref={containerRef}
     >
       <input
+        ref={inputRef}
         type="text"
         value={isOpen ? draft : selectedLabel}
         placeholder={placeholder}
