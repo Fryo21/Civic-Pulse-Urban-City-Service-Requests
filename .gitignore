@@ -5,3 +5,4 @@ __pycache__/
 test.log
 *.log
 local.settings.json
+.claude
