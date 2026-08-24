@@ -1,8 +1,37 @@
-.venv
-.env
+# Python
+.venv/
+venv/
 __pycache__/
 *.pyc
-test.log
+.pytest_cache/
 *.log
+
+# Local configuration / secrets
+.env
+.env.*
+!.env.example
 local.settings.json
-.claude
+.claude/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+tfstate-backup.json
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+
+# Frontend
+**/node_modules/
+**/dist/
+
+# Deployment artifacts
+release.zip
+
+# OS
+.DS_Store
+Thumbs.db
