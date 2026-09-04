@@ -106,3 +106,6 @@ def on_injection_completion(policeforce, year, month):
     logger.info(f"Ingestion marked complete for {policeforce} {year}-{month}")
 
 
+def get_container_client():
+    check_container_client()
+    return container_client

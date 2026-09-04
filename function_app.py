@@ -1,7 +1,7 @@
 import json
 import azure.functions as func
 import azure.durable_functions as df
-from src.main import run_ingestion
+from src.ingestion.main import run_ingestion
 
 
 app = df.DFApp(http_auth_level=func.AuthLevel.FUNCTION)
