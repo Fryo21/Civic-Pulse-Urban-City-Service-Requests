@@ -1,59 +1,74 @@
+-- ============================================================
+-- GOLD DIMENSIONS
+-- Source: public.stg_crime
+-- ============================================================
+
 
 -- ============================================================
 -- 1. CRIME TYPE DIMENSION
 -- ============================================================
 
-CREATE TABLE dim_crime_type (crime_type_key SERIAL PRIMARY KEY, category VARCHAR(100) UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS dim_crime_type (
+    crime_type_key SERIAL PRIMARY KEY,
+    category VARCHAR(100) UNIQUE NOT NULL
+);
 
 INSERT INTO dim_crime_type (category)
-SELECT DISTINCT category
-FROM stg_crime
-WHERE category IS NOT NULL;
-
--- Validate
-SELECT * FROM dim_crime_type;
+SELECT DISTINCT s.category
+FROM stg_crime s
+WHERE s.category IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM dim_crime_type d
+      WHERE d.category = s.category
+  );
 
 
 -- ============================================================
 -- 2. LOCATION DIMENSION
 -- ============================================================
 
-CREATE TABLE dim_location (
+CREATE TABLE IF NOT EXISTS dim_location (
     location_key SERIAL PRIMARY KEY,
     street_name VARCHAR(255),
     latitude DOUBLE PRECISION,
-    longitude DOUBLE PRECISION,
-    location_type VARCHAR(100)
+    longitude DOUBLE PRECISION
 );
 
+-- Remove legacy field from the previous Gold design
+ALTER TABLE dim_location
+DROP COLUMN IF EXISTS location_type;
 
 INSERT INTO dim_location (
     street_name,
     latitude,
-    longitude,
-    location_type
+    longitude
 )
 SELECT DISTINCT
-    street_name,
-    latitude,
-    longitude,
-    location_type
-FROM stg_crime;
-
+    s.street_name,
+    s.latitude,
+    s.longitude
+FROM stg_crime s
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dim_location d
+    WHERE d.street_name = s.street_name
+      AND d.latitude = s.latitude
+      AND d.longitude = s.longitude
+);
 
 
 -- ============================================================
 -- 3. DATE DIMENSION
 -- ============================================================
 
-CREATE TABLE dim_date (
+CREATE TABLE IF NOT EXISTS dim_date (
     date_key SERIAL PRIMARY KEY,
     month_date DATE UNIQUE NOT NULL,
     year INT NOT NULL,
     month_number INT NOT NULL,
     month_name VARCHAR(20) NOT NULL
 );
-
 
 INSERT INTO dim_date (
     month_date,
@@ -62,52 +77,41 @@ INSERT INTO dim_date (
     month_name
 )
 SELECT DISTINCT
-    month,
-    EXTRACT(YEAR FROM month)::INT,
-    EXTRACT(MONTH FROM month)::INT,
-    TO_CHAR(month, 'FMMonth')
-FROM stg_crime
-WHERE month IS NOT NULL;
-
-
--- ============================================================
--- 4. OUTCOME DIMENSION
--- ============================================================
-
-CREATE TABLE dim_outcome (
-    outcome_key SERIAL PRIMARY KEY,
-    outcome_status VARCHAR(255) UNIQUE NOT NULL
+    MAKE_DATE(s.year, s.month, 1),
+    s.year,
+    s.month,
+    TO_CHAR(MAKE_DATE(s.year, s.month, 1), 'FMMonth')
+FROM stg_crime s
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dim_date d
+    WHERE d.month_date = MAKE_DATE(s.year, s.month, 1)
 );
 
-INSERT INTO dim_outcome (outcome_status)
-SELECT DISTINCT outcome_status
-FROM stg_crime
-WHERE outcome_status IS NOT NULL
-  AND outcome_status <> '';
-
-SELECT * FROM dim_outcome;
-
 
 -- ============================================================
--- 5. POLICE FORCE DIMENSION
+-- 4. POLICE FORCE DIMENSION
 -- ============================================================
 
-CREATE TABLE dim_police_force (
+CREATE TABLE IF NOT EXISTS dim_police_force (
     police_force_key SERIAL PRIMARY KEY,
     police_force_name VARCHAR(150) UNIQUE NOT NULL
 );
 
-
 INSERT INTO dim_police_force (police_force_name)
-VALUES ('Metropolitan Police Service');
+SELECT 'Metropolitan Police Service'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM dim_police_force
+    WHERE police_force_name = 'Metropolitan Police Service'
+);
+
 
 -- ============================================================
 -- VALIDATION
 -- ============================================================
 
-SELECT * FROM stg_crime;
-SELECT * FROM dim_crime_type;
-SELECT * FROM dim_location;
-SELECT * FROM dim_date;
-SELECT * FROM dim_outcome;
-SELECT * FROM dim_police_force;
+SELECT COUNT(*) AS crime_types FROM dim_crime_type;
+SELECT COUNT(*) AS locations FROM dim_location;
+SELECT COUNT(*) AS dates FROM dim_date;
+SELECT COUNT(*) AS police_forces FROM dim_police_force;
