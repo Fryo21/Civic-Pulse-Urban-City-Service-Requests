@@ -1,0 +1,649 @@
+{
+	"name": "pl_police_crime_transform",
+	"properties": {
+		"activities": [
+			{
+				"name": "af_extract_police_crime",
+				"type": "AzureFunctionActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 60,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"functionName": "ingest-crime",
+					"body": {
+						"value": "@concat(\n    '{\"force_name\":\"',\n    pipeline().parameters.force,\n    '\",\"year\":\"',\n    pipeline().parameters.year,\n    '\",\"month\":\"',\n    pipeline().parameters.month,\n    '\"}'\n)",
+						"type": "Expression"
+					},
+					"method": "POST"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_function_crime_extraction",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "if_silver_exists",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "if_injestion_completed",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(variables('silver_exists'), true)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "df_transform_police_crime",
+							"type": "ExecuteDataFlow",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataflow": {
+									"referenceName": "df_transform_police_crime",
+									"type": "DataFlowReference",
+									"parameters": {
+										"force_id": {
+											"value": "'@{variables('force_id')}'",
+											"type": "Expression"
+										},
+										"year": {
+											"value": "'@{pipeline().parameters.year}'",
+											"type": "Expression"
+										},
+										"month": {
+											"value": "'@{pipeline().parameters.month}'",
+											"type": "Expression"
+										}
+									},
+									"datasetParameters": {
+										"srcBronzePoliceCrime": {
+											"p_force": {
+												"value": "@variables('force_id')",
+												"type": "Expression"
+											},
+											"p_year": {
+												"value": "@pipeline().parameters.year",
+												"type": "Expression"
+											},
+											"p_month": {
+												"value": "@pipeline().parameters.month",
+												"type": "Expression"
+											}
+										},
+										"silverpolicecrimeparquet": {
+											"p_force": {
+												"value": "@variables('force_id')",
+												"type": "Expression"
+											},
+											"p_year": {
+												"value": "@pipeline().parameters.year",
+												"type": "Expression"
+											},
+											"p_month": {
+												"value": "@pipeline().parameters.month",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								"compute": {
+									"coreCount": 8,
+									"computeType": "General"
+								},
+								"traceLevel": "Fine",
+								"continueOnError": true
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "lkp_check_postgres_month",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "if_silver_exists",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzurePostgreSqlSource",
+						"query": {
+							"value": "@concat(\n    'SELECT COUNT(*) AS record_count\n     FROM public.stg_crime\n      WHERE year = ',\n    pipeline().parameters.year,\n    ' AND month = ',\n    pipeline().parameters.month,\n    ';'\n)",
+							"type": "Expression"
+						},
+						"partitionOption": "None",
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "AzurePostgreSqlTable1",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "if_postgres_month_exists",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "lkp_check_postgres_month",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(\n    int(activity('lkp_check_postgres_month').output.firstRow.record_count),\n    0\n)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "cpy_silver_crime_to_postgres",
+							"description": "Loads cleaned and deduplicated Silver crime data into PostgreSQL staging tables.",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [
+								{
+									"name": "Source",
+									"value": "@concat( 'police-force/', variables('force_id'), '/', pipeline().parameters.year, '/', pipeline().parameters.month)"
+								},
+								{
+									"name": "Destination",
+									"value": "public.stg_crime"
+								}
+							],
+							"typeProperties": {
+								"source": {
+									"type": "ParquetSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true,
+										"wildcardFileName": "*.parquet",
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "ParquetReadSettings"
+									}
+								},
+								"sink": {
+									"type": "AzurePostgreSqlSink",
+									"writeBatchSize": 1000000,
+									"writeBatchTimeout": "00:30:00",
+									"writeMethod": "CopyCommand"
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"mappings": [
+										{
+											"source": {
+												"name": "id",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "crime_id"
+											}
+										},
+										{
+											"source": {
+												"name": "category",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "category"
+											}
+										},
+										{
+											"source": {
+												"name": "year",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "year"
+											}
+										},
+										{
+											"source": {
+												"name": "month",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "month"
+											}
+										},
+										{
+											"source": {
+												"name": "latitude",
+												"type": "Double",
+												"physicalType": "DOUBLE"
+											},
+											"sink": {
+												"name": "latitude"
+											}
+										},
+										{
+											"source": {
+												"name": "longitude",
+												"type": "Double",
+												"physicalType": "DOUBLE"
+											},
+											"sink": {
+												"name": "longitude"
+											}
+										},
+										{
+											"source": {
+												"name": "street_id",
+												"type": "Int32",
+												"physicalType": "INT32"
+											},
+											"sink": {
+												"name": "street_id"
+											}
+										},
+										{
+											"source": {
+												"name": "street_name",
+												"type": "String",
+												"physicalType": "UTF8"
+											},
+											"sink": {
+												"name": "street_name",
+												"scale": 0,
+												"precision": 0
+											}
+										}
+									],
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_silver_police_crime",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_force": {
+											"value": "@variables('force_id')",
+											"type": "Expression"
+										},
+										"p_year": {
+											"value": "@pipeline().parameters.year",
+											"type": "Expression"
+										},
+										"p_month": {
+											"value": "@pipeline().parameters.month",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "AzurePostgreSqlTable1",
+									"type": "DatasetReference"
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "web_check_ingestion_status",
+				"type": "Until",
+				"dependsOn": [
+					{
+						"activity": "af_extract_police_crime",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@or(\n    equals(variables('ingestion_status'), 'Completed'),\n    equals(variables('ingestion_status'), 'Failed')\n)",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "web_check",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "GET",
+								"url": {
+									"value": "@activity('af_extract_police_crime').output.statusQueryGetUri",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "set_injestion_variable",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "web_check",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "ingestion_status",
+								"value": {
+									"value": "@activity('web_check').output.runtimeStatus",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "check_wait",
+							"type": "Wait",
+							"dependsOn": [
+								{
+									"activity": "set_injestion_variable",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 10
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			},
+			{
+				"name": "if_injestion_completed",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "store_force_id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@equals(variables('ingestion_status'), 'Completed')",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "gm_check_silver_exists",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "ds_silver_police_crime",
+									"type": "DatasetReference",
+									"parameters": {
+										"p_force": {
+											"value": "@variables('force_id')",
+											"type": "Expression"
+										},
+										"p_year": {
+											"value": "@pipeline().parameters.year",
+											"type": "Expression"
+										},
+										"p_month": {
+											"value": "@pipeline().parameters.month",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"exists"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "ParquetReadSettings"
+								}
+							}
+						},
+						{
+							"name": "set_silver_status",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "gm_check_silver_exists",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "silver_exists",
+								"value": {
+									"value": "@activity('gm_check_silver_exists').output.exists",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Fail Safe 1",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "af_extract_police_crime",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "fAILED",
+					"errorCode": "fAILED"
+				}
+			},
+			{
+				"name": "Fail Safe 2",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "if_injestion_completed",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "fAILED",
+					"errorCode": "fAILED"
+				}
+			},
+			{
+				"name": "store_force_id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "web_check_ingestion_status",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "force_id",
+					"value": {
+						"value": "@activity('web_check').output.output.force_id",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Fail Safe 3",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "if_silver_exists",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "fAILED",
+					"errorCode": "fAILED"
+				}
+			},
+			{
+				"name": "load_gold_tables",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "if_postgres_month_exists",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzurePostgreSql1",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": "-- ============================================================\r\n-- 1. REMOVE DUPLICATE STAGING RECORDS\r\n-- Keep one row per crime_id\r\n-- ============================================================\r\n\r\nWITH ranked AS (\r\n    SELECT\r\n        ctid,\r\n        ROW_NUMBER() OVER (\r\n            PARTITION BY crime_id\r\n            ORDER BY ctid\r\n        ) AS rn\r\n    FROM public.stg_crime\r\n)\r\nDELETE FROM public.stg_crime s\r\nUSING ranked r\r\nWHERE s.ctid = r.ctid\r\n  AND r.rn > 1;\r\n\r\n\r\n-- ============================================================\r\n-- 2. CRIME TYPE DIMENSION\r\n-- ============================================================\r\n\r\nINSERT INTO public.dim_crime_type (category)\r\nSELECT DISTINCT s.category\r\nFROM public.stg_crime s\r\nWHERE s.category IS NOT NULL\r\n  AND NOT EXISTS (\r\n      SELECT 1\r\n      FROM public.dim_crime_type d\r\n      WHERE d.category = s.category\r\n  );\r\n\r\n\r\n-- ============================================================\r\n-- 3. LOCATION DIMENSION\r\n-- ============================================================\r\n\r\nINSERT INTO public.dim_location (\r\n    street_name,\r\n    latitude,\r\n    longitude\r\n)\r\nSELECT DISTINCT\r\n    s.street_name,\r\n    s.latitude,\r\n    s.longitude\r\nFROM public.stg_crime s\r\nWHERE NOT EXISTS (\r\n    SELECT 1\r\n    FROM public.dim_location d\r\n    WHERE d.street_name = s.street_name\r\n      AND d.latitude = s.latitude\r\n      AND d.longitude = s.longitude\r\n);\r\n\r\n\r\n-- ============================================================\r\n-- 4. DATE DIMENSION\r\n-- ============================================================\r\n\r\nINSERT INTO public.dim_date (\r\n    month_date,\r\n    year,\r\n    month_number,\r\n    month_name\r\n)\r\nSELECT DISTINCT\r\n    MAKE_DATE(s.year, s.month, 1),\r\n    s.year,\r\n    s.month,\r\n    TO_CHAR(MAKE_DATE(s.year, s.month, 1), 'FMMonth')\r\nFROM public.stg_crime s\r\nON CONFLICT (month_date) DO NOTHING;\r\n\r\n\r\n-- ============================================================\r\n-- 5. POLICE FORCE DIMENSION\r\n-- ============================================================\r\n\r\nINSERT INTO public.dim_police_force (police_force_name)\r\nVALUES ('Metropolitan Police Service')\r\nON CONFLICT (police_force_name) DO NOTHING;\r\n\r\n\r\n-- ============================================================\r\n-- 6. FACT TABLE\r\n-- ============================================================\r\n\r\nINSERT INTO public.fact_crime (\r\n    crime_id,\r\n    crime_type_key,\r\n    location_key,\r\n    date_key,\r\n    police_force_key\r\n)\r\nSELECT\r\n    s.crime_id,\r\n    ct.crime_type_key,\r\n    l.location_key,\r\n    d.date_key,\r\n    pf.police_force_key\r\nFROM public.stg_crime s\r\nJOIN public.dim_crime_type ct\r\n    ON s.category = ct.category\r\nJOIN public.dim_location l\r\n    ON s.street_name = l.street_name\r\n    AND s.latitude = l.latitude\r\n    AND s.longitude = l.longitude\r\nJOIN public.dim_date d\r\n    ON MAKE_DATE(s.year, s.month, 1) = d.month_date\r\nCROSS JOIN public.dim_police_force pf\r\nWHERE pf.police_force_name = 'Metropolitan Police Service'\r\nON CONFLICT (crime_id) DO NOTHING;"
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			}
+		],
+		"parameters": {
+			"force": {
+				"type": "string",
+				"defaultValue": "Metropolitan Police Service"
+			},
+			"year": {
+				"type": "string",
+				"defaultValue": "2025"
+			},
+			"month": {
+				"type": "string",
+				"defaultValue": "01"
+			}
+		},
+		"variables": {
+			"ingestion_status": {
+				"type": "String",
+				"defaultValue": "Pending"
+			},
+			"silver_exists": {
+				"type": "Boolean"
+			},
+			"force_id": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-09-04T04:06:36Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

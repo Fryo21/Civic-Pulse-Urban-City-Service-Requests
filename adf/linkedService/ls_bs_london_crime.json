@@ -1,0 +1,13 @@
+{
+	"name": "ls_bs_london_crime",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Connects Azure Data Factory to the `stlondoncrime` Azure Blob Storage account so ADF can read Bronze crime data from the `bronze-london` container for downstream transformation and processing.\n",
+		"annotations": [],
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"serviceEndpoint": "https://stlondoncrime.blob.core.windows.net/",
+			"accountKind": "StorageV2"
+		}
+	}
+}

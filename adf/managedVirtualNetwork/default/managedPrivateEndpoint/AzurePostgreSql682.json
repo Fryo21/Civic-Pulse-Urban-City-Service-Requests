@@ -1,0 +1,10 @@
+{
+	"name": "AzurePostgreSql682",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/4a629adc-b9a0-4e17-ad9c-b987c25f0704/resourceGroups/rg-london-crime-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/goldlondon",
+		"groupId": "postgresqlServer",
+		"fqdns": [
+			"goldlondon.postgres.database.azure.com"
+		]
+	}
+}

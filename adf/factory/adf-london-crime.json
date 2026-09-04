@@ -1,0 +1,15 @@
+{
+	"name": "adf-london-crime",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "norwayeast",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "07a4f3fe-c77a-49ff-ac2d-ed0471c0242b",
+		"tenantId": "c9ef029c-18cf-4016-86d3-93cf8e94ff94"
+	}
+}

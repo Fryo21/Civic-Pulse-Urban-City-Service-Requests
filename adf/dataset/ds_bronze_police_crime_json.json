@@ -1,0 +1,84 @@
+{
+	"name": "ds_bronze_police_crime_json",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_bs_london_crime",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"p_force": {
+				"type": "string"
+			},
+			"p_year": {
+				"type": "string"
+			},
+			"p_month": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": {
+					"value": "@concat(\n    'police-force/',\n    dataset().p_force,\n    '/',\n    dataset().p_year,\n    '/',\n    dataset().p_month\n)",
+					"type": "Expression"
+				},
+				"container": "bronze-london"
+			}
+		},
+		"schema": {
+			"type": "object",
+			"properties": {
+				"category": {
+					"type": "string"
+				},
+				"location_type": {
+					"type": "string"
+				},
+				"location": {
+					"type": "object",
+					"properties": {
+						"latitude": {
+							"type": "string"
+						},
+						"street": {
+							"type": "object",
+							"properties": {
+								"id": {
+									"type": "integer"
+								},
+								"name": {
+									"type": "string"
+								}
+							}
+						},
+						"longitude": {
+							"type": "string"
+						}
+					}
+				},
+				"context": {
+					"type": "string"
+				},
+				"outcome_status": {
+					"type": "null"
+				},
+				"persistent_id": {
+					"type": "string"
+				},
+				"id": {
+					"type": "integer"
+				},
+				"location_subtype": {
+					"type": "string"
+				},
+				"month": {
+					"type": "string"
+				}
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

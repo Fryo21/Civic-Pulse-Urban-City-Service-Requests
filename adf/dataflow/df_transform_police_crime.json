@@ -1,0 +1,97 @@
+{
+	"name": "df_transform_police_crime",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "ds_bronze_police_crime_json",
+						"type": "DatasetReference"
+					},
+					"name": "srcBronzePoliceCrime",
+					"description": "Reads police crime JSON files from the Bronze layer."
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ds_silver_police_crime",
+						"type": "DatasetReference"
+					},
+					"name": "silverpolicecrimeparquet",
+					"rejectedDataLinkedService": {
+						"referenceName": "ds_adf_silverlondon",
+						"type": "LinkedServiceReference"
+					}
+				}
+			],
+			"transformations": [
+				{
+					"name": "selPoliceCrimeFields",
+					"description": "Selects and renames the crime fields required for analysis."
+				},
+				{
+					"name": "drvCleanPoliceCrime",
+					"description": "Casts crime fields to appropriate data types for analysis."
+				},
+				{
+					"name": "aggDeduplicateCrime"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     force_id as string,",
+				"     year as string,",
+				"     month as string",
+				"}",
+				"source(output(",
+				"          category as string,",
+				"          location_type as string,",
+				"          location as (latitude as string, street as (id as integer, name as string), longitude as string),",
+				"          context as string,",
+				"          outcome_status as string,",
+				"          persistent_id as string,",
+				"          id as integer,",
+				"          location_subtype as string,",
+				"          month as string",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: true,",
+				"     limit: 100,",
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'documentPerLine') ~> srcBronzePoliceCrime",
+				"srcBronzePoliceCrime select(mapColumn(",
+				"          id,",
+				"          category,",
+				"          month,",
+				"          longitude = location.longitude,",
+				"          latitude = location.latitude,",
+				"          street_id = location.street.id,",
+				"          street_name = location.street.name",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selPoliceCrimeFields",
+				"selPoliceCrimeFields derive(latitude = toDouble(latitude),",
+				"          longitude = toDouble(longitude),",
+				"          year = toInteger(left(month, 4)),",
+				"          month = toInteger(right(month, 2))) ~> drvCleanPoliceCrime",
+				"drvCleanPoliceCrime aggregate(groupBy(id),",
+				"     category = first(category),",
+				"          year = first(year),",
+				"          month = first(month),",
+				"          longitude = first(longitude),",
+				"          latitude = first(latitude),",
+				"          street_name = first(street_name),",
+				"          street_id = first(street_id)) ~> aggDeduplicateCrime",
+				"aggDeduplicateCrime sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     truncate: true,",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     outputAssertFailedRows: true) ~> silverpolicecrimeparquet"
+			]
+		}
+	}
+}
