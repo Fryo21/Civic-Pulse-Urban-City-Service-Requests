@@ -34,7 +34,12 @@ jobs:
   python-tests:
     name: Python Validation Tests
     runs-on: ubuntu-latest
-
+    
+    env:
+      STORAGE_ACCOUNT_NAME: ${{ vars.STORAGE_ACCOUNT_NAME }}
+      BRONZE_CONTAINER_NAME: ${{ vars.BRONZE_CONTAINER_NAME }}
+      QUARANTINE_CONTAINER_NAME: ${{ vars.QUARANTINE_CONTAINER_NAME }}
+        
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
