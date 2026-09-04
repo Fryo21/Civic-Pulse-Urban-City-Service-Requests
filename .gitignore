@@ -3,6 +3,7 @@
 venv/
 __pycache__/
 *.pyc
+<<<<<<< HEAD
 .pytest_cache/
 *.log
 
@@ -35,3 +36,18 @@ release.zip
 # OS
 .DS_Store
 Thumbs.db
+=======
+test.log
+local.settings.json
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+>>>>>>> origin/main
