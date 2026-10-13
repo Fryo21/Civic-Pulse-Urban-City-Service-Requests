@@ -2,7 +2,7 @@
 
 
 ## PROJECT OVERVIEW
-This project implements an end-to-end data engineering pipeline and API for monthly police crime reporting in London. The solution includes:
+This project implements an end-to-end data engineering pipeline and API for monthly police crime reporting in London. The Medallion solution includes:
 - Python extraction of raw JSON crime data from the UK Police API into Azure Blob Storage as the Bronze layer.
 - Data validation and transformation using Azure Data Factory storing cleaned data in the Silver layer.
 - Loading transformed data into Azure PostgreSQL Database serving as Gold layer for structured and query ready crime data.
